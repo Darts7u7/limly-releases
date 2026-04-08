@@ -64,6 +64,7 @@ jobs:
           echo "POSTHOG_API_KEY=${{ secrets.POSTHOG_API_KEY }}"  >> src-tauri/.env
 
       - name: Create release in limly-releases
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.RELEASES_GH_TOKEN }}
         run: |
