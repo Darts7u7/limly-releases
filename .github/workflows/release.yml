@@ -1,0 +1,104 @@
+name: Release
+
+# Triggered by pushing a version tag to THIS repo (limly-releases):
+#   git tag v1.3.8 && git push origin v1.3.8
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+jobs:
+  release:
+    permissions:
+      contents: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            args: --target aarch64-apple-darwin
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+            args: --target x86_64-apple-darwin
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout Limly-Rust (private source)
+        uses: actions/checkout@v4
+        with:
+          repository: Darts7u7/Limly-Rust
+          token: ${{ secrets.RELEASES_GH_TOKEN }}
+          ref: main
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Write runtime environment file
+        run: |
+          echo "YARAH_API_URL=https://www.limly.io"               > src-tauri/.env
+          echo "API_ACCESS_KEY=${{ secrets.API_ACCESS_KEY }}"    >> src-tauri/.env
+          echo "PAYMENT_ENDPOINT=${{ secrets.PAYMENT_ENDPOINT }}" >> src-tauri/.env
+          echo "APP_ENDPOINT=${{ secrets.APP_ENDPOINT }}"         >> src-tauri/.env
+          echo "POSTHOG_API_KEY=${{ secrets.POSTHOG_API_KEY }}"  >> src-tauri/.env
+
+      - name: Create release in limly-releases
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_GH_TOKEN }}
+        run: |
+          gh release create ${{ github.ref_name }} \
+            --repo Darts7u7/limly-releases \
+            --title "Limly ${{ github.ref_name }}" \
+            --notes "Release ${{ github.ref_name }}" \
+            --target main \
+            || true
+
+      - name: Build and publish release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASES_GH_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          YARAH_API_URL: https://www.limly.io
+          API_ACCESS_KEY: ${{ secrets.API_ACCESS_KEY }}
+          PAYMENT_ENDPOINT: ${{ secrets.PAYMENT_ENDPOINT }}
+          APP_ENDPOINT: ${{ secrets.APP_ENDPOINT }}
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+        with:
+          owner: Darts7u7
+          repo: limly-releases
+          tagName: ${{ github.ref_name }}
+          releaseName: "Limly ${{ github.ref_name }}"
+          releaseBody: |
+            ## Installation
+
+            **macOS** — Download the `.dmg` for your chip:
+            - Apple Silicon (M1/M2/M3): `Limly_*_aarch64.dmg`
+            - Intel: `Limly_*_x64.dmg`
+
+            If macOS blocks the app, go to **System Settings → Privacy & Security → Security** and click **Allow Anyway**, then reopen.
+
+            ---
+            *Built automatically from source by GitHub Actions.*
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true
+          args: ${{ matrix.args }}
