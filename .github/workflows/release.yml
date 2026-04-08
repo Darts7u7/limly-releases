@@ -92,16 +92,7 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "Limly ${{ github.ref_name }}"
           releaseBody: |
-            ## Installation
-
-            **macOS** — Download the `.dmg` for your chip:
-            - Apple Silicon (M1/M2/M3): `Limly_*_aarch64.dmg`
-            - Intel: `Limly_*_x64.dmg`
-
-            If macOS blocks the app, go to **System Settings → Privacy & Security → Security** and click **Allow Anyway**, then reopen.
-
-            ---
-            *Built automatically from source by GitHub Actions.*
+            Nueva versión disponible. La actualización se instalará automáticamente para tu sistema operativo.
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
